@@ -32,17 +32,17 @@
                      (error "entity already created"))
                    (when (null ,gid)
                      (error "entity not created")))
-               (dispatching-ecase ,gevent
+               (dispatching-ecase ,gevent args
                  (:create () (setf ,gid (red:incr (sym-concat ',name "-id"))))
                  (:recreate (id) (setf ,gid id))
                  (:id () ,gid)
                  (:name () ,(symbol-name name))
                  ,@body)))))))
 
-(defmacro dispatching-ecase (keyform &body body)
+(defmacro dispatching-ecase (keyform arguments &body body)
   (labels ((make-case (case-form)
              (destructuring-bind (test args &rest actions) case-form
-               `(,test (destructuring-bind ,args args
+               `(,test (destructuring-bind ,args ,arguments
                         ,@actions)))))
   `(ecase ,keyform
      ,@(mapcar #'make-case body))))
