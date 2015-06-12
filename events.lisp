@@ -27,19 +27,25 @@
            (let ((,gid nil) ,@members)
              (lambda (,gevent &rest args)
                (declare (ignorable args))
-               (if (eq ,gevent :create)
+               (if (or (eq ,gevent :create) (eq ,gevent :recreate))
                    (unless (null ,gid)
                      (error "entity already created"))
                    (when (null ,gid)
                      (error "entity not created")))
-               (ecase ,gevent
-                 (:create (if (null args)
-                              (setf ,gid (red:incr (sym-concat ',name "-id")))
-                              (destructuring-bind (id) args
-                                (setf ,gid id))))
-                 (:id ,gid)
-                 (:name ,(symbol-name name))
+               (dispatching-ecase ,gevent
+                 (:create () (setf ,gid (red:incr (sym-concat ',name "-id"))))
+                 (:recreate (id) (setf ,gid id))
+                 (:id () ,gid)
+                 (:name () ,(symbol-name name))
                  ,@body)))))))
+
+(defmacro dispatching-ecase (keyform &body body)
+  (labels ((make-case (case-form)
+             (destructuring-bind (test args &rest actions) case-form
+               `(,test (destructuring-bind ,args args
+                        ,@actions)))))
+  `(ecase ,keyform
+     ,@(mapcar #'make-case body))))
 
 (defun get-entity-events (entity-name)
   (sym-concat entity-name "-events"))
@@ -77,6 +83,6 @@
               (error "cannot create duplicate entity with id ~a" id)))
         (if (eq ev :create)
             (let ((new (funcall entity-ctor)))
-              (funcall new ev id)
+              (funcall new :recreate id)
               (setf (gethash id entities) new))
             (apply entity ev args))))))
